@@ -135,47 +135,47 @@ void GraphManager::createOptimizer(std::string backend, g2o::SparseOptimizer* op
 
   ParameterServer* ps = ParameterServer::instance();
   if(ps->get<bool>("optimize_landmarks")){
-     g2o::BlockSolverX::LinearSolverType *linearSolver = new g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>(); // alternative: CHOLMOD
-     g2o::BlockSolverX *solver_ptr = new g2o::BlockSolverX(linearSolver);
+    auto linearSolver = g2o::make_unique<g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>>(); // alternative: CHOLMOD
+    auto solver_ptr = g2o::make_unique<g2o::BlockSolverX>(std::move(linearSolver));
      //optimizer_->setSolver(solver_ptr);
-    g2o::OptimizationAlgorithmDogleg * algo = new g2o::OptimizationAlgorithmDogleg(solver_ptr);
+    g2o::OptimizationAlgorithmDogleg * algo = new g2o::OptimizationAlgorithmDogleg(std::move(solver_ptr));
     optimizer_->setAlgorithm(algo);
   }
   else
   {
-    SlamBlockSolver* solver = NULL;
+    std::unique_ptr<g2o::Solver> solver;
     if(backend == "cholmod" || backend == "auto"){
-      SlamLinearCholmodSolver* linearSolver = new SlamLinearCholmodSolver();
+      auto linearSolver = g2o::make_unique<SlamLinearCholmodSolver>();
       linearSolver->setBlockOrdering(false);
-      solver = new SlamBlockSolver(linearSolver);
+      solver.reset(new SlamBlockSolver(std::move(linearSolver)));
       current_backend_ = "cholmod";
     }
     else if(backend == "csparse"){
-      SlamLinearCSparseSolver* linearSolver = new SlamLinearCSparseSolver();
+      auto linearSolver = g2o::make_unique<SlamLinearCSparseSolver>();
       linearSolver->setBlockOrdering(false);
-      solver = new SlamBlockSolver(linearSolver);
+      solver.reset(new SlamBlockSolver(std::move(linearSolver)));
       current_backend_ = "csparse";
     }
     else if(backend == "dense"){
-      SlamLinearDenseSolver* linearSolver = new SlamLinearDenseSolver();
-      solver = new SlamBlockSolver(linearSolver);
+      auto linearSolver = g2o::make_unique<SlamLinearDenseSolver>();
+      solver.reset(new SlamBlockSolver(std::move(linearSolver)));
       current_backend_ = "dense";
     }
     else if(backend == "pcg"){
-      SlamLinearPCGSolver* linearSolver = new SlamLinearPCGSolver();
-      solver = new SlamBlockSolver(linearSolver);
+      auto linearSolver = g2o::make_unique<SlamLinearPCGSolver>();
+      solver.reset(new SlamBlockSolver(std::move(linearSolver)));
       current_backend_ = "pcg";
     }
     else {
       ROS_ERROR("Bad Parameter for g2o Solver backend: %s. User cholmod, csparse or pcg", backend.c_str());
       ROS_INFO("Falling Back to Cholmod Solver");
-      SlamLinearCholmodSolver* linearSolver = new SlamLinearCholmodSolver();
+      auto linearSolver = g2o::make_unique<SlamLinearCholmodSolver>();
       linearSolver->setBlockOrdering(false);
-      solver = new SlamBlockSolver(linearSolver);
+      solver.reset(new SlamBlockSolver(std::move(linearSolver)));
       current_backend_ = "cholmod";
     }
     //optimizer_->setSolver(solver);
-    g2o::OptimizationAlgorithmLevenberg * algo = new g2o::OptimizationAlgorithmLevenberg(solver);
+    g2o::OptimizationAlgorithmLevenberg * algo = new g2o::OptimizationAlgorithmLevenberg(std::move(solver));
     //g2o::OptimizationAlgorithmDogleg * algo = new g2o::OptimizationAlgorithmDogleg(solver);
     optimizer_->setAlgorithm(algo);
   }
